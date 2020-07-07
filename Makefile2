@@ -1,0 +1,37 @@
+CFLAGS := -Wall -O3 -g -std=c++17 -ffast-math -march=native -fcilkplus
+#CFLAGS := -Wall -O2 -g -std=c++17 -ffast-math  -fcilkplus -flto   
+# -pg  bdver1 sandybridge haswell
+LDFLAGS := -lrt -lm -lcilkrts -lpthread -ldl
+
+TARGET := run
+CILKSCALE_TARGET := .run.cilkscale
+CILKSAN_TARGET := .run.cilksan
+DEBUG_TARGET := run.debug
+SRC := test2.cpp
+
+.PHONY: all clean
+
+all: $(TARGET)
+scale: $(CILKSCALE_TARGET)
+san: $(CILKSAN_TARGET)
+#$(DEBUG_TARGET) 
+debug: $(DEBUG_TARGET)
+
+$(TARGET): $(SRC) 
+	$(CXX) $(CFLAGS) $^ $(LDFLAGS) -o $@
+	objdump -S --disassemble $(TARGET) > $(TARGET).dump
+
+#$(DEBUG_TARGET): $(SRC) 
+#	$(CXX) $(CFLAGS) -Ddebug=1 $^ $(LDFLAGS) -o $@ 
+
+$(CILKSAN_TARGET): $(SRC)
+	$(CXX) -o $@ $(CFLAGS) -fsanitize=cilk $^ $(LDFLAGS) -fsanitize=cilk
+
+$(CILKSCALE_TARGET): $(SRC)
+	$(CXX) -o $@ $(CFLAGS) -fcsi $^ $(LDFLAGS) -lclang_rt.cilkscale-x86_64 -L/efs/tools/tapir-6/build/lib/clang/6.0.0/lib/linux
+
+clean:
+	rm -f $(TARGET) $(CILKSCALE_TARGET) $(CILKSAN_TARGET) $(DEBUG_TARGET)
+
+# assembly:
+#  clang++ -g -fcilkplus -S -mllvm --x86-asm-syntax=intel test2.cpp
